@@ -3,7 +3,7 @@
 import click
 
 from ..formatter import maybe_print_structured, print_info, print_success
-from ._common import structured_output_options, exit_for_error, run_client_action
+from ._common import exit_for_error, run_client_action, structured_output_options
 
 
 def _resolve_user_id(ctx, user_id: str | None) -> str:

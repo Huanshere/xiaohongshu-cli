@@ -4,7 +4,6 @@ import click
 
 from ..formatter import (
     console,
-    extract_note_id,
     maybe_print_structured,
     parse_note_url,
     print_info,
@@ -111,7 +110,9 @@ def comments(ctx, id_or_url: str, cursor: str, xsec_token: str, fetch_all: bool,
         if not maybe_print_structured(data, as_json=as_json, as_yaml=as_yaml):
             render_comments(data)
             if fetch_all and isinstance(data, dict):
-                print_info(f"Fetched {data.get('total_fetched', 0)} comments across {data.get('pages_fetched', 0)} pages")
+                total = data.get('total_fetched', 0)
+                pages = data.get('pages_fetched', 0)
+                print_info(f"Fetched {total} comments across {pages} pages")
 
     except Exception as exc:
         exit_for_error(exc, as_json=as_json, as_yaml=as_yaml)

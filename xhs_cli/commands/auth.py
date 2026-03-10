@@ -11,7 +11,7 @@ from ..formatter import (
     render_user_info,
     success_payload,
 )
-from ._common import structured_output_options, exit_for_error, run_client_action
+from ._common import exit_for_error, run_client_action, structured_output_options
 
 
 def _xhs_user_payload(info: dict) -> dict[str, object]:

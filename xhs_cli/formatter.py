@@ -165,7 +165,7 @@ def parse_note_url(id_or_url: str) -> tuple[str, str]:
     Returns (note_id, xsec_token). xsec_token may be empty if not in URL.
     """
     if "xiaohongshu.com" in id_or_url:
-        from urllib.parse import urlparse, parse_qs
+        from urllib.parse import parse_qs, urlparse
         parsed = urlparse(id_or_url)
         # Extract note ID from path
         parts = parsed.path.rstrip("/").split("/")

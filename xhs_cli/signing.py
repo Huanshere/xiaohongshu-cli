@@ -21,7 +21,7 @@ import struct
 import time
 from typing import Any
 
-from .constants import APP_ID, CHROME_VERSION, PLATFORM, SDK_VERSION, USER_AGENT
+from .constants import APP_ID, PLATFORM, SDK_VERSION, USER_AGENT
 
 # ─── Constants ──────────────────────────────────────────────────────────────
 

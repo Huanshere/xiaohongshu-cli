@@ -1,6 +1,5 @@
 """Tests for anti-detection measures: fingerprint consistency, UA/platform alignment, jitter."""
 
-import time
 
 from xhs_cli.client import XhsClient
 from xhs_cli.constants import CHROME_VERSION, PLATFORM, USER_AGENT
