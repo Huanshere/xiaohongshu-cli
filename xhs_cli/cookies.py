@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import subprocess
@@ -63,13 +64,14 @@ def clear_cookies() -> None:
         logger.debug("Cleared cookies from %s", cookie_path)
 
 
-def _available_browsers() -> list[str]:
-    """List all browser names supported by browser_cookie3."""
+@functools.lru_cache(maxsize=1)
+def _available_browsers() -> tuple[str, ...]:
+    """List all browser names supported by browser_cookie3 (cached)."""
     import inspect
 
     import browser_cookie3 as bc3
 
-    return sorted(
+    return tuple(sorted(
         name
         for name in dir(bc3)
         if not name.startswith("_")
@@ -77,7 +79,7 @@ def _available_browsers() -> list[str]:
         and callable(getattr(bc3, name))
         and hasattr(getattr(bc3, name), "__code__")
         and "domain_name" in inspect.signature(getattr(bc3, name)).parameters
-    )
+    ))
 
 
 def _get_browser_loader(source: str):
@@ -122,7 +124,7 @@ def _extract_in_process(source: str) -> dict[str, str] | None:
 def _extract_via_subprocess(source: str) -> dict[str, str] | None:
     """Extract cookies via subprocess to avoid browser SQLite locks."""
     extract_script = '''
-import json, sys
+import json, sys, inspect
 try:
     import browser_cookie3 as bc3
 except ImportError:
@@ -131,7 +133,7 @@ except ImportError:
 
 source = sys.argv[1]
 loader = getattr(bc3, source, None)
-if not loader or not callable(loader):
+if not loader or not callable(loader) or "domain_name" not in inspect.signature(loader).parameters:
     print(json.dumps({"error": f"Unknown browser: {source}"}))
     sys.exit(0)
 

@@ -74,15 +74,15 @@ class TestCookiesToString:
 class TestGetCookies:
     def test_prefers_saved_cookies_by_default(self, monkeypatch):
         monkeypatch.setattr("xhs_cli.cookies.load_saved_cookies", lambda: {"a1": "saved"})
-        monkeypatch.setattr("xhs_cli.cookies.extract_browser_cookies", lambda source: {"a1": "fresh"})
+        monkeypatch.setattr("xhs_cli.cookies.extract_browser_cookies", lambda source: ("chrome", {"a1": "fresh"}))
 
-        assert get_cookies("chrome") == {"a1": "saved"}
+        assert get_cookies("chrome") == ("saved", {"a1": "saved"})
 
     def test_force_refresh_bypasses_saved_cookies(self, monkeypatch):
         monkeypatch.setattr("xhs_cli.cookies.load_saved_cookies", lambda: {"a1": "saved"})
-        monkeypatch.setattr("xhs_cli.cookies.extract_browser_cookies", lambda source: {"a1": "fresh"})
+        monkeypatch.setattr("xhs_cli.cookies.extract_browser_cookies", lambda source: ("chrome", {"a1": "fresh"}))
         saved = []
         monkeypatch.setattr("xhs_cli.cookies.save_cookies", lambda cookies: saved.append(cookies))
 
-        assert get_cookies("chrome", force_refresh=True) == {"a1": "fresh"}
+        assert get_cookies("chrome", force_refresh=True) == ("chrome", {"a1": "fresh"})
         assert saved == [{"a1": "fresh"}]
