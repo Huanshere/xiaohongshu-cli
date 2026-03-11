@@ -68,10 +68,9 @@ xhs whoami
 All machine-readable output uses the envelope documented in [SCHEMA.md](./SCHEMA.md).
 Payloads live under `.data`.
 
-- Non-TTY stdout → auto YAML
-- `--json` / `--yaml` → explicit format
-- `OUTPUT=json` env → global override
-- `OUTPUT=rich` env → force human output
+- Default → simplified YAML (only essential fields, token-efficient)
+- `--json` → complete raw API data (for debug/advanced use)
+- `OUTPUT=rich` env → force human-readable tables
 
 ## Command Reference
 
@@ -79,15 +78,16 @@ Payloads live under `.data`.
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `xhs search <keyword>` | Search notes | `xhs search "美食" --sort popular --type video` |
-| `xhs read <id_or_url>` | Read a note (URL auto-extracts xsec_token) | `xhs read "https://...?xsec_token=xxx"` |
-| `xhs comments <id_or_url>` | Get comments (xsec_token required — paste URL) | `xhs comments "https://...?xsec_token=..."` |
-| `xhs comments <id_or_url> --all` | Get ALL comments (auto-paginate) | `xhs comments "<url>" --all --json` |
+| `xhs search <keyword>` | Search notes (returns xsec_token per item) | `xhs search "美食" --sort popular --type video` |
+| `xhs read <id> --xsec-token <t>` | Read a note (token from feed/search/hot) | `xhs read abc123 --xsec-token ABx...` |
+| `xhs read <url>` | Read by URL (auto-extracts xsec_token) | `xhs read "https://...?xsec_token=xxx"` |
+| `xhs comments <id> --xsec-token <t>` | Get comments (xsec_token required) | `xhs comments abc123 --xsec-token ABx...` |
+| `xhs comments <id_or_url> --all` | Get ALL comments (auto-paginate) | `xhs comments "<url>" --all` |
 | `xhs sub-comments <note_id> <comment_id>` | Get replies to comment | `xhs sub-comments abc 123` |
 | `xhs user <user_id>` | View user profile | `xhs user 5f2e123` |
 | `xhs user-posts <user_id>` | List user's notes | `xhs user-posts 5f2e123 --cursor ""` |
-| `xhs feed` | Browse recommendation feed | `xhs feed --yaml` |
-| `xhs hot` | Browse trending notes | `xhs hot -c food` |
+| `xhs feed` | Browse recommendation feed (returns xsec_token per item) | `xhs feed` |
+| `xhs hot` | Browse trending notes (returns xsec_token per item) | `xhs hot -c food` |
 | `xhs topics <keyword>` | Search topics/hashtags | `xhs topics "旅行"` |
 | `xhs search-user <keyword>` | Search users | `xhs search-user "摄影"` |
 | `xhs my-notes` | List own published notes | `xhs my-notes --page 0` |
@@ -135,14 +135,20 @@ Payloads live under `.data`.
 ### Search → Read → Like pipeline
 
 ```bash
+# 1. Search returns items with id + xsec_token
+# 2. Extract both to read the note
 NOTE_ID=$(xhs search "美食推荐" --json | jq -r '.data.items[0].id')
-xhs read "$NOTE_ID" --json | jq '.data'
+TOKEN=$(xhs search "美食推荐" --json | jq -r '.data.items[0].xsec_token')
+xhs read "$NOTE_ID" --xsec-token "$TOKEN"
 xhs like "$NOTE_ID"
 ```
 
 ### Browse trending food notes
 
 ```bash
+# Default YAML output is simplified (id, title, user, liked_count, xsec_token)
+xhs hot -c food
+# Use --json for complete raw data
 xhs hot -c food --json | jq '.data.items[:5] | .[].note_card | {title, likes: .interact_info.liked_count}'
 ```
 
@@ -163,29 +169,29 @@ xhs notifications --type mentions --json | jq '.data.message_list[:5]'
 ### Analyze all comments on a note
 
 ```bash
-# Fetch ALL comments and analyze themes
+# Fetch ALL comments (use URL or note_id + xsec_token)
 xhs comments "$NOTE_URL" --all --json | jq '.data.comments | length'
-# Count questions
-xhs comments "$NOTE_URL" --all --json | jq '[.data.comments[] | select(.content | test("[\uff1f?]"))] | length'
+xhs comments "$NOTE_ID" --xsec-token "$TOKEN" --all --json | jq '.data.comments | length'
 ```
 
 ### Daily reading workflow
 
 ```bash
-# Browse recommendation feed
-xhs feed --yaml
+# Browse feed → pick items to read (each item has xsec_token)
+xhs feed
+xhs hot -c food
+xhs hot -c travel
 
-# Browse trending by category
-xhs hot -c food --yaml
-xhs hot -c travel --yaml
+# Read a specific note using id + xsec_token from feed output
+xhs read <note_id> --xsec-token <token>
 ```
 
 ### URL to insights pipeline
 
 ```bash
-# User pastes a URL → read + all comments
-xhs read "https://www.xiaohongshu.com/explore/xxx?xsec_token=yyy" --json
-xhs comments "https://www.xiaohongshu.com/explore/xxx?xsec_token=yyy" --all --json
+# User pastes a URL → read + all comments (xsec_token auto-extracted from URL)
+xhs read "https://www.xiaohongshu.com/explore/xxx?xsec_token=yyy"
+xhs comments "https://www.xiaohongshu.com/explore/xxx?xsec_token=yyy" --all
 ```
 
 ## Hot Categories

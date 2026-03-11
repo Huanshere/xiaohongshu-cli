@@ -35,9 +35,7 @@ def resolve_output_format(*, as_json: bool, as_yaml: bool) -> str | None:
     if output_mode == "rich":
         return None
 
-    if not sys.stdout.isatty():
-        return "yaml"
-    return None
+    return "yaml"
 
 
 def print_json(data: Any) -> None:
@@ -57,6 +55,77 @@ def print_yaml(data: Any) -> None:
     )
 
 
+def _simplify_feed_item(item: dict) -> dict:
+    """Simplify a feed/search item to essential fields."""
+    nc = item.get("note_card", {})
+    user = nc.get("user", {})
+    interact = nc.get("interact_info", {})
+    result: dict[str, Any] = {
+        "id": item.get("id", ""),
+        "xsec_token": item.get("xsec_token", ""),
+        "title": nc.get("title", nc.get("display_title", "")),
+        "type": nc.get("type", ""),
+        "user": user.get("nickname", ""),
+        "user_id": user.get("user_id", ""),
+        "liked_count": interact.get("liked_count", ""),
+    }
+    # For note detail (read command) — include extra fields
+    if nc.get("desc"):
+        result["desc"] = nc["desc"]
+        result["comment_count"] = interact.get("comment_count", "")
+        result["collected_count"] = interact.get("collected_count", "")
+        result["share_count"] = interact.get("share_count", "")
+        result["image_count"] = len(nc.get("image_list", []))
+        tags = [t.get("name", "") for t in nc.get("tag_list", []) if t.get("name")]
+        if tags:
+            result["tags"] = tags
+    return result
+
+
+def _simplify_comment(comment: dict) -> dict:
+    """Simplify a comment to essential fields."""
+    return {
+        "user": comment.get("user_info", {}).get("nickname", ""),
+        "content": comment.get("content", ""),
+        "liked_count": comment.get("like_count", "0"),
+        "sub_comment_count": comment.get("sub_comment_count", 0),
+    }
+
+
+def _simplify_payload(payload: dict) -> dict:
+    """Simplify structured payload for YAML output, keeping only essential fields."""
+    if not isinstance(payload, dict) or "data" not in payload:
+        return payload
+
+    data = payload["data"]
+    if not isinstance(data, dict):
+        return payload
+
+    simplified = {k: v for k, v in payload.items() if k != "data"}
+
+    items = data.get("items", [])
+    if items and isinstance(items[0], dict) and "note_card" in items[0]:
+        simplified["data"] = {
+            "items": [_simplify_feed_item(it) for it in items],
+        }
+        if data.get("has_more"):
+            simplified["data"]["has_more"] = True
+        return simplified
+
+    comments = data.get("comments", [])
+    if comments and isinstance(comments[0], dict) and "content" in comments[0]:
+        simplified["data"] = {
+            "comments": [_simplify_comment(c) for c in comments],
+        }
+        if data.get("cursor"):
+            simplified["data"]["cursor"] = data["cursor"]
+        if data.get("has_more"):
+            simplified["data"]["has_more"] = True
+        return simplified
+
+    return payload
+
+
 def maybe_print_structured(data: Any, *, as_json: bool, as_yaml: bool) -> bool:
     """Print structured output when requested or when stdout is non-TTY."""
     fmt = resolve_output_format(as_json=as_json, as_yaml=as_yaml)
@@ -66,7 +135,7 @@ def maybe_print_structured(data: Any, *, as_json: bool, as_yaml: bool) -> bool:
     if fmt == "json":
         print_json(payload)
     else:
-        print_yaml(payload)
+        print_yaml(_simplify_payload(payload))
     return True
 
 

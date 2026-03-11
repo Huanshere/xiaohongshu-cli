@@ -25,10 +25,10 @@ A CLI for Xiaohongshu (小红书) — search, read, interact, and post via rever
 - ✍️ **Creator** — post image notes, my-notes list, delete
 - 🔔 **Notifications** — unread count, mentions, likes, new followers
 - 🛡️ **Anti-detection** — consistent macOS Chrome fingerprint, `sec-ch-ua` alignment, session-stable browser identity, Gaussian jitter, captcha cooldown, exponential backoff
-- 📊 **Structured output** — commands support `--yaml` and `--json`; non-TTY stdout defaults to YAML
+- 📊 **Structured output** — default YAML (simplified for agents); `--json` for complete raw data
 - 📦 **Stable envelope** — see [SCHEMA.md](./SCHEMA.md) for `ok/schema_version/data/error`
 
-> **AI Agent Tip:** Prefer `--yaml` for structured output unless strict JSON is required. Non-TTY stdout defaults to YAML automatically.
+> **AI Agent Tip:** Default output is simplified YAML (token-efficient). Use `--json` for complete raw API data. Use `OUTPUT=rich` for human-readable tables.
 
 ## Installation
 
@@ -67,23 +67,27 @@ xhs search-user "用户名"               # Search users
 xhs topics "美食"                      # Search hashtags/topics
 
 # ─── Reading ──────────────────────────────────────
-xhs read <note_id>                     # Read a note
-xhs read "https://www.xiaohongshu.com/explore/xxx?xsec_token=yyy"  # Read by URL (auto-extracts xsec_token)
-xhs comments "<url>"                   # View comments — paste URL to auto-extract xsec_token
-xhs comments "<url>" --all             # Fetch ALL comments (auto-paginate all pages)
-xhs comments "<url>" --all --json      # All comments as JSON
-xhs comments <note_id> --xsec-token T  # Use note_id + explicit xsec_token
+xhs read <note_id> --xsec-token <token>  # Read a note (xsec_token from feed/search/hot)
+xhs read "https://...?xsec_token=yyy"   # Read by URL (auto-extracts xsec_token)
+xhs comments <note_id> --xsec-token <t>  # View comments (xsec_token required)
+xhs comments "<url>"                     # View comments — paste URL to auto-extract xsec_token
+xhs comments "<url>" --all              # Fetch ALL comments (auto-paginate all pages)
+xhs comments "<url>" --all --json       # All comments as JSON
 xhs sub-comments <note_id> <cmt_id>   # View replies to a comment
 xhs user <user_id>                     # User profile
 xhs user-posts <user_id>              # User's published notes
 xhs user-posts <user_id> --cursor X   # Paginate with cursor
 
 # ─── Feed & Discovery ────────────────────────────
-xhs feed                              # Recommendation feed
+xhs feed                              # Recommendation feed (returns xsec_token per item)
 xhs hot                               # Hot notes (default: food)
 xhs hot -c fashion                    # Categories: fashion, food, cosmetics,
                                       #   movie, career, love, home, gaming,
                                       #   travel, fitness
+
+# ─── Workflow: feed → read ───────────────────────
+# 1. Get feed items (each has id + xsec_token)
+# 2. Use them to read: xhs read <id> --xsec-token <token>
 
 # ─── Social ───────────────────────────────────────
 xhs favorites                          # My bookmarked notes (current user)
@@ -133,7 +137,7 @@ Saved cookies are valid for **7 days** by default. After that, the client automa
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OUTPUT` | `auto` | Output format: `json`, `yaml`, `rich`, or `auto` (→ YAML when non-TTY) |
+| `OUTPUT` | `auto` | Output format: `json` (raw), `yaml` (simplified), `rich` (tables), or `auto` (→ YAML) |
 
 ## Rate Limiting & Anti-Detection
 
@@ -159,15 +163,21 @@ xiaohongshu-cli includes comprehensive anti-risk-control measures designed to mi
 
 ## Structured Output
 
-All `--json` / `--yaml` output uses the shared envelope from [SCHEMA.md](./SCHEMA.md):
+All output uses the shared envelope from [SCHEMA.md](./SCHEMA.md):
 ```yaml
 ok: true
 schema_version: "1"
 data: { ... }
 ```
 
-When stdout is not a TTY (e.g., piped or invoked by an AI agent), output defaults to YAML.
-Use `OUTPUT=yaml|json|rich|auto` to override.
+- **Default (YAML)**: simplified output — only essential fields (id, title, user, counts, xsec_token). Token-efficient for AI agents.
+- **`--json`**: complete raw API data — all fields including images, covers, track IDs.
+- **`OUTPUT=rich`**: human-readable Rich tables.
+
+> **xsec_token workflow**: `feed`, `search`, and `hot` return `xsec_token` per item. Use it with `read` and `comments`:
+> ```bash
+> xhs read <note_id> --xsec-token <token>
+> ```
 
 ## Use as AI Agent Skill
 
@@ -280,7 +290,7 @@ The built-in Gaussian jitter delay (~1-1.5s between requests) is intentional to 
 - ✍️ **创作者** — 发布图文笔记、我的笔记列表、删除
 - 🔔 **通知** — 未读数、@、点赞、新关注
 - 🛡️ **反风控** — macOS Chrome 指纹一致性、session 级浏览器身份持久化、高斯抖动延迟、验证码自动冷却、指数退避重试
-- 📊 **结构化输出** — `--yaml` / `--json`，非 TTY 默认输出 YAML
+- 📊 **结构化输出** — 默认 YAML（精简版，省 token）；`--json` 输出完整原始数据
 - 📦 **稳定 envelope** — 参见 [SCHEMA.md](./SCHEMA.md)
 
 ## 安装
@@ -317,21 +327,24 @@ xhs search-user "用户名"               # 搜索用户
 xhs topics "美食"                      # 搜索话题
 
 # 阅读
-xhs read <note_id>                     # 阅读笔记
-xhs read "https://...?xsec_token=..."  # 粘贴网页 URL 直接阅读（自动提取 token）
-xhs comments "<url>"                   # 查看评论 — 粘贴 URL 自动提取 xsec_token
-xhs comments "<url>" --all             # 获取全部评论（自动翻页）
-xhs comments "<url>" --all --json      # 全部评论，JSON 格式
-xhs comments <note_id> --xsec-token T  # 用 note_id + 显式 xsec_token
+xhs read <note_id> --xsec-token <token>  # 阅读笔记（token 从 feed/search/hot 获取）
+xhs read "https://...?xsec_token=..."    # 粘贴 URL 直接阅读（自动提取 token）
+xhs comments <note_id> --xsec-token <t>  # 查看评论（需要 xsec_token）
+xhs comments "<url>"                     # 粘贴 URL 查看评论
+xhs comments "<url>" --all              # 获取全部评论（自动翻页）
 xhs sub-comments <note_id> <cmt_id>   # 查看评论的回复
 xhs user <user_id>                     # 用户主页
 xhs user-posts <user_id>              # 用户发布的笔记
 
 # 发现
-xhs feed                              # 推荐 Feed
+xhs feed                              # 推荐 Feed（每条返回 xsec_token）
 xhs hot -c food                       # 热门笔记（按分类）
 xhs hot -c travel                     # 分类: fashion, food, cosmetics, movie, career,
                                       #       love, home, gaming, travel, fitness
+
+# 工作流: feed → read
+# 1. 获取 feed（每条有 id + xsec_token）
+# 2. 阅读: xhs read <id> --xsec-token <token>
 
 # 社交
 xhs favorites                          # 我的收藏（自动识别当前用户）
